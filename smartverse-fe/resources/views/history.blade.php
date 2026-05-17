@@ -277,7 +277,7 @@
 @section('content')
     <div class="container history-wrapper">
         <a href="/" class="text-decoration-none text-secondary fw-semibold back-link mb-4">
-            <img src="{{ asset('images/back.png') }}" width="18">
+            <img src="{{ asset('images/back.png') }}" width="18" alt="Back">
             Back to Home
         </a>
 
@@ -291,36 +291,46 @@
         <div class="search-filter-wrapper">
             <div class="row g-3 align-items-center">
                 <div class="col-lg-10">
-                    <div class="search-box">
-                        <img src="images/Search.png" alt="search icon" class="search-icon">
-                        <input type="text" class="form-control" placeholder="search here based on file name or title...">
-                    </div>
+                    <form method="GET" action="{{ url('/history') }}" class="d-flex gap-2">
+                        <div class="search-box flex-grow-1">
+                            <img src="{{ asset('images/Search.png') }}" alt="search icon" class="search-icon">
+                            <input type="text" name="q" value="{{ request('q') }}" class="form-control" placeholder="search here based on file name or title...">
+                        </div>
+
+                        <select name="per_page" class="form-select" style="width:110px">
+                            <option value="10" {{ request('per_page', 10) == 10 ? 'selected' : '' }}>10</option>
+                            <option value="20" {{ request('per_page') == 20 ? 'selected' : '' }}>20</option>
+                            <option value="50" {{ request('per_page') == 50 ? 'selected' : '' }}>50</option>
+                        </select>
+
+                        <button class="filter-btn" type="submit">Apply</button>
+                    </form>
                 </div>
 
                 <div class="col-lg-2">
                     <div class="dropdown w-100">
                         <button class="filter-btn w-100 d-flex align-items-center justify-content-center gap-2"
                             type="button" data-bs-toggle="dropdown">
-                            <img src="images/filter.png" alt="filter" class="filter-icon">
+                            <img src="{{ asset('images/filter.png') }}" alt="filter" class="filter-icon">
                             <span>Filter</span>
                         </button>
 
                         <ul class="dropdown-menu w-100 custom-dropdown">
                             <li>
-                                <a class="dropdown-item custom-dropdown-item" href="#">
-                                    <img src="images/filter_all.png" alt="all" class="dropdown-icon"> All
+                                <a class="dropdown-item custom-dropdown-item" href="{{ request()->fullUrlWithQuery(['type' => 'all']) }}">
+                                    <img src="{{ asset('images/filter_all.png') }}" alt="all" class="dropdown-icon"> All
                                 </a>
                             </li>
 
                             <li>
-                                <a class="dropdown-item custom-dropdown-item" href="#">
-                                    <img src="images/filter_ppt.png" alt="ppt" class="dropdown-icon"> PPT
+                                <a class="dropdown-item custom-dropdown-item" href="{{ request()->fullUrlWithQuery(['type' => 'ppt']) }}">
+                                    <img src="{{ asset('images/filter_ppt.png') }}" alt="ppt" class="dropdown-icon"> PPT
                                 </a>
                             </li>
 
                             <li>
-                                <a class="dropdown-item custom-dropdown-item" href="#">
-                                    <img src="images/filter_video.png" alt="video" class="dropdown-icon"> Video
+                                <a class="dropdown-item custom-dropdown-item" href="{{ request()->fullUrlWithQuery(['type' => 'video']) }}">
+                                    <img src="{{ asset('images/filter_video.png') }}" alt="video" class="dropdown-icon"> Video
                                 </a>
                             </li>
                         </ul>
@@ -329,206 +339,101 @@
             </div>
         </div>
 
-        {{-- File Count --}}
-        <p class="file-count">
-            Showing 5 out of 24 files
-        </p>
+        {{-- File Count & History Cards --}}
+        @if ($summaries->isEmpty())
+            <div class="empty-state">
+                <p>No summary history yet. Start by uploading a file to create your first summary!</p>
+            </div>
+        @else
+            <p class="file-count">
+                Showing {{ $summaries->count() }} {{ $summaries->count() === 1 ? 'file' : 'files' }}
+            </p>
 
-        {{-- Card 1 --}}
-        <div class="history-card d-flex flex-column flex-md-row justify-content-between align-items-md-center">
-            <div class="d-flex gap-3">
-                <div class="file-icon">
-                    <img src="images/File_2.png" alt="">
-                </div>
+            {{-- History Cards --}}
+            @foreach ($summaries as $summary)
+                <div class="history-card d-flex flex-column flex-md-row justify-content-between align-items-md-center">
+                    <div class="d-flex gap-3">
+                        <div class="file-icon">
+                            @if (strpos($summary->file_type ?? '', 'video') !== false)
+                                <img src="{{ asset('images/Video_2.png') }}" alt="">
+                            @else
+                                <img src="{{ asset('images/File_2.png') }}" alt="">
+                            @endif
+                        </div>
 
-                <div>
-                    <div class="file-title">Lorem Ipsum Dolor Sit Amet</div>
-                    <div class="file-name">Example.pptx</div>
+                        <div>
+                            <div class="file-title">{{ $summary->topic ?? 'Summary' }}</div>
+                            <div class="file-name">{{ $summary->file_name ?? 'Unknown file' }}</div>
 
-                    <div class="generated-time">
-                        <img src="images/Clock.png" alt="" height="20" width="20">
-                        Generated: Recently
+                            <div class="generated-time">
+                                <img src="{{ asset('images/Clock.png') }}" alt="" height="20" width="20">
+                                Generated: {{ $summary->created_at->diffForHumans() }}
+                            </div>
+                        </div>
                     </div>
-                </div>
-            </div>
 
-            <div class="d-flex gap-2 action-wrapper">
-                <a href="#" class="summary-btn">
-                    <img src="images/eye_2.png" alt="" class="btn-icon">
-                    View Summary
-                </a>
-
-                <button class="delete-btn">
-                    <img src="images/trash.png" alt="" class="btn-icon">
-                    Delete
-                </button>
-            </div>
-        </div>
-
-        {{-- Card 2 --}}
-        <div class="history-card d-flex flex-column flex-md-row justify-content-between align-items-md-center">
-            <div class="d-flex gap-3">
-                <div class="file-icon">
-                    <img src="images/File_2.png" alt="">
-                </div>
-
-                <div>
-                    <div class="file-title">Lorem Ipsum Dolor Sit Amet 2</div>
-                    <div class="file-name">Example2.ppt</div>
-
-                    <div class="generated-time">
-                        <img src="images/Clock.png" alt="" height="20" width="20">
-                        Generated: 5 hours ago
-                    </div>
-                </div>
-            </div>
-
-            <div class="d-flex gap-2 action-wrapper">
-                <a href="#" class="summary-btn">
-                    <img src="images/eye_2.png" alt="" class="btn-icon">
-                    View Summary
-                </a>
-
-                <button class="delete-btn">
-                    <img src="images/trash.png" alt="" class="btn-icon">
-                    Delete
-                </button>
-            </div>
-        </div>
-
-        {{-- Card 3 --}}
-        <div class="history-card d-flex flex-column flex-md-row justify-content-between align-items-md-center">
-            <div class="d-flex gap-3">
-                <div class="file-icon">
-                    <img src="images/Video_2.png" alt="">
-                </div>
-
-                <div>
-                    <div class="file-title">Lorem Ipsum Dolor Sit Amet 3</div>
-                    <div class="file-name">Example3.mp4</div>
-
-                    <div class="generated-time">
-                        <img src="images/Clock.png" alt="" height="20" width="20">
-                        Generated: 3 days ago
-                    </div>
-                </div>
-            </div>
-
-            <div class="d-flex gap-2 action-wrapper">
-                <a href="#" class="summary-btn">
-                    <img src="images/eye_2.png" alt="" class="btn-icon">
-                    View Summary
-                </a>
-
-                <button class="delete-btn">
-                    <img src="images/trash.png" alt="" class="btn-icon">
-                    Delete
-                </button>
-            </div>
-        </div>
-
-        {{-- Card 4 --}}
-        <div class="history-card d-flex flex-column flex-md-row justify-content-between align-items-md-center">
-            <div class="d-flex gap-3">
-                <div class="file-icon">
-                    <img src="images/Video_2.png" alt="">
-                </div>
-
-                <div>
-                    <div class="file-title">Lorem Ipsum Dolor Sit Amet 4</div>
-                    <div class="file-name">Example4.mov</div>
-
-                    <div class="generated-time">
-                        <img src="images/Clock.png" alt="" height="20" width="20">
-                        Generated: 2 weeks ago
-                    </div>
-                </div>
-            </div>
-
-            <div class="d-flex gap-2 action-wrapper">
-                <a href="#" class="summary-btn">
-                    <img src="images/eye_2.png" alt="" class="btn-icon">
-                    View Summary
-                </a>
-
-                <button class="delete-btn">
-                    <img src="images/trash.png" alt="" class="btn-icon">
-                    Delete
-                </button>
-            </div>
-        </div>
-
-        {{-- Card 5 --}}
-        <div class="history-card d-flex flex-column flex-md-row justify-content-between align-items-md-center">
-            <div class="d-flex gap-3">
-                <div class="file-icon">
-                    <img src="images/Video_2.png" alt="">
-                </div>
-
-                <div>
-                    <div class="file-title">Lorem Ipsum Dolor Sit Amet 5</div>
-                    <div class="file-name">Example5.avi</div>
-
-                    <div class="generated-time">
-                        <img src="images/Clock.png" alt="" height="20" width="20">
-                        Generated: 1 month ago
-                    </div>
-                </div>
-            </div>
-
-            <div class="d-flex gap-2 action-wrapper">
-                <a href="#" class="summary-btn">
-                    <img src="images/eye_2.png" alt="" class="btn-icon">
-                    View Summary
-                </a>
-
-                <button class="delete-btn">
-                    <img src="images/trash.png" alt="" class="btn-icon">
-                    Delete
-                </button>
-            </div>
-        </div>
-
-        {{-- Pagination --}}
-        <div class="pagination-wrapper d-flex justify-content-center">
-            <nav>
-                <ul class="pagination align-items-center">
-
-                    <li class="page-item">
-                        <a class="custom-page-nav" href="#">
-                            <img src="images/arrow_left.png" alt="Previous"> Previous
+                    <div class="d-flex gap-2 action-wrapper">
+                        <a href="{{ url('/summary/'.$summary->id) }}" class="summary-btn">
+                            <img src="{{ asset('images/eye_2.png') }}" alt="" class="btn-icon">
+                            View Summary
                         </a>
-                    </li>
 
-                    <li class="page-item active">
-                        <a class="page-link" href="#">1</a>
-                    </li>
+                        <form action="{{ url('/summary/'.$summary->id) }}" method="POST" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this summary?');">
+                            @csrf
+                            @method('DELETE')
+                            <button type="submit" class="delete-btn">
+                                <img src="{{ asset('images/trash.png') }}" alt="" class="btn-icon">
+                                Delete
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            @endforeach
 
-                    <li class="page-item">
-                        <a class="page-link" href="#">2</a>
-                    </li>
+            {{-- Pagination (if available) --}}
+            <div class="pagination-wrapper d-flex justify-content-center">
+                @if (method_exists($summaries, 'links'))
+                    {{ $summaries->links() }}
+                @else
+                    <nav>
+                        <ul class="pagination align-items-center">
+                            <li class="page-item">
+                                <a class="custom-page-nav" href="#">
+                                    <img src="{{ asset('images/arrow_left.png') }}" alt="Previous"> Previous
+                                </a>
+                            </li>
 
-                    <li class="page-item">
-                        <span class="page-link">...</span>
-                    </li>
+                            <li class="page-item active">
+                                <a class="page-link" href="#">1</a>
+                            </li>
 
-                    <li class="page-item">
-                        <a class="page-link" href="#">4</a>
-                    </li>
+                            <li class="page-item">
+                                <a class="page-link" href="#">2</a>
+                            </li>
 
-                    <li class="page-item">
-                        <a class="page-link" href="#">5</a>
-                    </li>
+                            <li class="page-item">
+                                <span class="page-link">...</span>
+                            </li>
 
-                    <li class="page-item">
-                        <a class="custom-page-nav" href="#">
-                            Next <img src="images/arrow_right.png" alt="Next">
-                        </a>
-                    </li>
+                            <li class="page-item">
+                                <a class="page-link" href="#">4</a>
+                            </li>
 
-                </ul>
-            </nav>
-        </div>
+                            <li class="page-item">
+                                <a class="page-link" href="#">5</a>
+                            </li>
+
+                            <li class="page-item">
+                                <a class="custom-page-nav" href="#">
+                                    Next <img src="{{ asset('images/arrow_right.png') }}" alt="Next">
+                                </a>
+                            </li>
+
+                        </ul>
+                    </nav>
+                @endif
+            </div>
+        @endif
 
     </div>
 @endsection

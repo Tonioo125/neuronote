@@ -66,6 +66,7 @@
                 <a class="nav-link text-white" href="#">About Us</a>
                 @auth
                     <a class="nav-link text-white" href="/summary">Summary</a>
+                    <a class="nav-link text-white" href="/history">History</a>
                     <form method="POST" action="{{ route('logout') }}" class="m-0">
                         @csrf
                         <button type="submit" class="btn login-btn btn-sm">Logout</button>
