@@ -503,3 +503,167 @@ async def summarize_video(background_tasks: BackgroundTasks, file: UploadFile = 
     except Exception as e:
         print(f"Error: {e}")
         return {"error": str(e)}
+    
+
+# ==================================== Generate Questions =========================================
+#region GENERATE QUESTIONS
+
+import yake
+
+kw_extractor = yake.KeywordExtractor(top=1)
+
+def get_keyword(sentence):
+
+    keywords = kw_extractor.extract_keywords(sentence)
+
+    if not keywords:
+        return None
+
+    return keywords[0][0]
+
+def create_question(sentence, answer):
+
+    pattern = re.compile(re.escape(answer), re.IGNORECASE)
+
+    question = pattern.sub("_____", sentence, count=1)
+
+    return question
+
+def generate_distractors(answer, all_keywords):
+
+    distractors = []
+
+    for word in all_keywords:
+        if word.lower() != answer.lower():
+            distractors.append(word)
+
+    distractors = list(set(distractors))
+
+    return distractors[:3]
+
+def extract_candidate_sentences(text):
+    sentences = re.split(r'(?<=[.!?]) +', text)
+
+    candidates = []
+
+    for s in sentences:
+        words = s.split()
+
+        if 8 <= len(words) <= 25:
+            candidates.append(s)
+
+    return candidates
+
+
+import random
+
+def generate_mcq(text, max_questions=5):
+
+    sentences = extract_candidate_sentences(text)
+
+    all_keywords = []
+
+    for s in sentences:
+        kw = get_keyword(s)
+
+        if kw:
+            all_keywords.append(kw)
+
+    questions = []
+
+    random.shuffle(sentences)
+
+    for sentence in sentences:
+
+        if len(questions) >= max_questions:
+            break
+
+        answer = get_keyword(sentence)
+
+        if not answer:
+            continue
+
+        question = create_question(sentence, answer)
+
+        # validasi blank
+        if "_____" not in question:
+            continue
+
+        distractors = generate_distractors(
+            answer,
+            all_keywords
+        )
+
+        if len(distractors) < 3:
+            continue
+
+        options = distractors[:3] + [answer]
+
+        random.shuffle(options)
+
+        questions.append({
+            "question": question,
+            "options": options,
+            "answer": answer
+        })
+
+    return questions
+
+@app.post("/generate-quiz")
+async def generate_quiz(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...)
+):
+
+    os.makedirs("temp", exist_ok=True)
+
+    file_location = os.path.abspath(f"temp/{file.filename}")
+
+    with open(file_location, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    # convert ppt -> pdf
+    if file.filename.lower().endswith(".pdf"):
+        pdf_path = file_location
+        files_to_cleanup = [file_location]
+
+    else:
+        convert_ppt_to_pdf(file_location)
+
+        pdf_path = os.path.splitext(file_location)[0] + ".pdf"
+
+        files_to_cleanup = [file_location, pdf_path]
+
+    # extract slides
+    slides = extract_all_text(pdf_path)
+
+    slides = filter_irrelevant_slides(slides)
+
+    slides = group_short_slides(slides)
+
+    # gabungkan semua isi slide
+    combined_text = ""
+
+    for slide in slides:
+
+        combined_text += " "
+
+        combined_text += clean_text(
+            slide["content"]
+        )
+
+    # generate maksimal 10 soal total
+    questions = generate_mcq(
+        combined_text,
+        max_questions=5
+    )
+
+    background_tasks.add_task(
+        remove_temp_files,
+        files_to_cleanup
+    )
+
+    return {
+        "total_questions": len(questions),
+        "questions": questions
+    }
