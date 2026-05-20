@@ -8,3 +8,9 @@ rapidocr-onnxruntime
 torch
 faster-whisper
 moviepy
+python-multipart
+yake
+sentencepiece
+imageio-ffmpeg
+ctranslate2
+av
