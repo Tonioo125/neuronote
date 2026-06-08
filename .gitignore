@@ -1,4 +1,4 @@
-smartverse-fe/vendor/
+# smartverse-fe/vendor/
 smartverse-fe/node_modules/
 smartverse-fe/.env
 smartverse-be/temp/
