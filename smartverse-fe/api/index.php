@@ -4,17 +4,13 @@ define('LARAVEL_START', microtime(true));
 
 require __DIR__ . '/../vendor/autoload.php';
 
-$app = require_once __DIR__ . '/../bootstrap/app.php';
-
-// Clear cached config to avoid stale state on serverless
-$app->useStoragePath('/tmp/storage');
-
-// Make sure storage dirs exist
+// Setup /tmp storage dirs
 $dirs = [
-    '/tmp/storage/framework/cache',
-    '/tmp/storage/framework/sessions', 
+    '/tmp/storage/framework/cache/data',
+    '/tmp/storage/framework/sessions',
     '/tmp/storage/framework/views',
     '/tmp/storage/logs',
+    '/tmp/storage/app',
 ];
 
 foreach ($dirs as $dir) {
@@ -23,10 +19,26 @@ foreach ($dirs as $dir) {
     }
 }
 
-$kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
+try {
+    $app = require_once __DIR__ . '/../bootstrap/app.php';
+    $app->useStoragePath('/tmp/storage');
 
-$response = $kernel->handle(
-    $request = Illuminate\Http\Request::capture()
-)->send();
+    $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
 
-$kernel->terminate($request, $response);
+    $response = $kernel->handle(
+        $request = Illuminate\Http\Request::capture()
+    );
+
+    $response->send();
+    $kernel->terminate($request, $response);
+
+} catch (\Throwable $e) {
+    error_log('LARAVEL ERROR: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
+    error_log('TRACE: ' . $e->getTraceAsString());
+    http_response_code(500);
+    echo json_encode([
+        'error' => $e->getMessage(),
+        'file' => $e->getFile(),
+        'line' => $e->getLine(),
+    ]);
+}
