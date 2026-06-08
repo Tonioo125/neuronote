@@ -2,43 +2,40 @@
 
 define('LARAVEL_START', microtime(true));
 
-require __DIR__ . '/../vendor/autoload.php';
-
-// Setup /tmp storage dirs
+// Setup /tmp storage SEBELUM apapun
+$storagePath = '/tmp/storage';
 $dirs = [
-    '/tmp/storage/framework/cache/data',
-    '/tmp/storage/framework/sessions',
-    '/tmp/storage/framework/views',
-    '/tmp/storage/logs',
-    '/tmp/storage/app',
+    $storagePath . '/framework/cache/data',
+    $storagePath . '/framework/sessions',
+    $storagePath . '/framework/views',
+    $storagePath . '/logs',
+    $storagePath . '/app/public',
 ];
-
 foreach ($dirs as $dir) {
     if (!is_dir($dir)) {
         mkdir($dir, 0755, true);
     }
 }
 
-try {
-    $app = require_once __DIR__ . '/../bootstrap/app.php';
-    $app->useStoragePath('/tmp/storage');
+// Set env variable SEBELUM Laravel boot
+$_ENV['APP_STORAGE_PATH'] = $storagePath;
+putenv('APP_STORAGE_PATH=' . $storagePath);
 
-    $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
+require __DIR__ . '/../vendor/autoload.php';
 
-    $response = $kernel->handle(
-        $request = Illuminate\Http\Request::capture()
-    );
+$app = require_once __DIR__ . '/../bootstrap/app.php';
 
-    $response->send();
-    $kernel->terminate($request, $response);
+// Override storage path setelah app dibuat tapi sebelum kernel
+$app->useStoragePath($storagePath);
 
-} catch (\Throwable $e) {
-    error_log('LARAVEL ERROR: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
-    error_log('TRACE: ' . $e->getTraceAsString());
-    http_response_code(500);
-    echo json_encode([
-        'error' => $e->getMessage(),
-        'file' => $e->getFile(),
-        'line' => $e->getLine(),
-    ]);
-}
+// Bind storage path ke config
+$app->instance('path.storage', $storagePath);
+
+$kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
+
+$response = $kernel->handle(
+    $request = Illuminate\Http\Request::capture()
+);
+
+$response->send();
+$kernel->terminate($request, $response);
