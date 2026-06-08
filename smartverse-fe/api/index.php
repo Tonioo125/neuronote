@@ -2,7 +2,6 @@
 
 define('LARAVEL_START', microtime(true));
 
-// Setup /tmp storage SEBELUM apapun
 $storagePath = '/tmp/storage';
 $dirs = [
     $storagePath . '/framework/cache/data',
@@ -17,25 +16,31 @@ foreach ($dirs as $dir) {
     }
 }
 
-// Set env variable SEBELUM Laravel boot
-$_ENV['APP_STORAGE_PATH'] = $storagePath;
-putenv('APP_STORAGE_PATH=' . $storagePath);
-
 require __DIR__ . '/../vendor/autoload.php';
 
 $app = require_once __DIR__ . '/../bootstrap/app.php';
-
-// Override storage path setelah app dibuat tapi sebelum kernel
 $app->useStoragePath($storagePath);
-
-// Bind storage path ke config
 $app->instance('path.storage', $storagePath);
 
 $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
 
-$response = $kernel->handle(
-    $request = Illuminate\Http\Request::capture()
-);
+try {
+    $request = Illuminate\Http\Request::capture();
+    $response = $kernel->handle($request);
+    $response->send();
+    $kernel->terminate($request, $response);
+} catch (\Throwable $e) {
+    // Log error asli
+    error_log('=== ROOT CAUSE ERROR ===');
+    error_log('Message: ' . $e->getMessage());
+    error_log('File: ' . $e->getFile() . ':' . $e->getLine());
+    error_log('Trace: ' . $e->getTraceAsString());
 
-$response->send();
-$kernel->terminate($request, $response);
+    http_response_code(500);
+    header('Content-Type: application/json');
+    echo json_encode([
+        'error' => $e->getMessage(),
+        'file' => str_replace('/var/task/user/', '', $e->getFile()),
+        'line' => $e->getLine(),
+    ]);
+}
