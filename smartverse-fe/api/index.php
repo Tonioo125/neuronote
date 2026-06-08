@@ -1,36 +1,39 @@
 <?php
 
-define('LARAVEL_START', microtime(true));
+use Illuminate\Foundation\Application;
+use Illuminate\Foundation\Configuration\Exceptions;
+use Illuminate\Foundation\Configuration\Middleware;
 
-// Setup /tmp dirs dulu
 $storagePath = '/tmp/storage';
-$dirs = [
+foreach ([
     $storagePath . '/framework/cache/data',
     $storagePath . '/framework/sessions',
     $storagePath . '/framework/views',
     $storagePath . '/logs',
     $storagePath . '/app/public',
-];
-foreach ($dirs as $dir) {
-    if (!is_dir($dir)) {
-        mkdir($dir, 0755, true);
-    }
+] as $dir) {
+    if (!is_dir($dir)) mkdir($dir, 0755, true);
 }
 
-// Override path via environment SEBELUM Laravel boot
-putenv('APP_STORAGE_PATH=' . $storagePath);
-$_SERVER['APP_STORAGE_PATH'] = $storagePath;
-
-require __DIR__ . '/../vendor/autoload.php';
-
-$app = require_once __DIR__ . '/../bootstrap/app.php';
-
-// Laravel 11: useStoragePath setelah create()
-$app->useStoragePath($storagePath);
-
-$kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);
-
-$request = Illuminate\Http\Request::capture();
-$response = $kernel->handle($request);
-$response->send();
-$kernel->terminate($request, $response);
+return Application::configure(basePath: dirname(__DIR__))
+    ->withRouting(
+        web: __DIR__.'/../routes/web.php',
+        commands: __DIR__.'/../routes/console.php',
+        health: '/up',
+    )
+    ->withMiddleware(function (Middleware $middleware): void {
+        //
+    })
+    ->withExceptions(function (Exceptions $exceptions): void {
+        // Show raw error on Vercel instead of going through error handler
+        $exceptions->render(function (\Throwable $e, $request) {
+            return response()->json([
+                'error' => $e->getMessage(),
+                'file' => str_replace('/var/task/user/', '', $e->getFile()),
+                'line' => $e->getLine(),
+                'class' => get_class($e),
+            ], 500);
+        });
+    })
+    ->create()
+    ->useStoragePath($storagePath);
