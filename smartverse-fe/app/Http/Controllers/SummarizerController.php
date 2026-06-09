@@ -24,6 +24,21 @@ class SummarizerController extends Controller
 
         $result = $this->_service->executeSummary($file);
 
+        if (Auth::check() && ($result['status'] ?? 'ok') !== 'error') {
+            $slides    = $result['slides_summary'] ?? [];
+            $firstSlot = $slides[0] ?? [];
+
+            Summary::create([
+                'user_id'      => Auth::id(),
+                'file_name'    => $file->getClientOriginalName(),
+                'file_type'    => $file->getMimeType(),
+                'topic'        => $firstSlot['topic'] ?? null,
+                'slide_numbers'=> array_column($slides, 'slide_numbers'),
+                'summary'      => $firstSlot['summary'] ?? null,
+                'raw_response' => $result,
+            ]);
+        }
+
         return response()->json($result);
     }
 
