@@ -34,9 +34,24 @@ class QuizController extends Controller
         return view('quiz', compact('questions'));
     }
 
-   public function result(Request $request)
+    public function result(Request $request)
     {
-        $questions = session('quiz_questions', []);
+        $questions = [];
+
+        if ($request->has('quiz_data')) {
+            $decoded = json_decode(base64_decode($request->input('quiz_data')), true);
+            if (is_array($decoded) && count($decoded) > 0) {
+                $questions = $decoded;
+            }
+        }
+
+        if (empty($questions)) {
+            $questions = session('quiz_questions', []);
+        }
+
+        if (empty($questions)) {
+            return redirect('/summary')->with('error', 'Quiz session expired. Please generate a new quiz.');
+        }
 
         $correctCount = 0;
         $incorrectCount = 0;

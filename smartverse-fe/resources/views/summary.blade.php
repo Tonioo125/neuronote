@@ -162,6 +162,10 @@
                 Back to Home
             </a>
 
+            @if (session('error'))
+                <div class="alert alert-danger mt-3">{{ session('error') }}</div>
+            @endif
+
             <div class="file-box mt-4">
                 <div class="file-inner d-flex justify-content-between align-items-center">
 
