@@ -3,42 +3,31 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\Http;
-use Illuminate\Http\Client\Response;
 
 class SummarizerServices
 {
-    public function executeSummary($file)
+    public function executeSummaryFromUrl(string $fileUrl, string $fileName, string $mimeType): array
     {
-        $mimeType = $file->getMimeType();
-
-        // Handle Video
         if (str_contains($mimeType, 'video')) {
-            return $this->summarize($file,'/summarize-video');
+            return $this->summarizeUrl($fileUrl, $fileName, '/summarize-video-from-url');
         }
 
-        // Handle PPT/PDF/PPTX
         if (str_contains($mimeType, 'pdf') || str_contains($mimeType, 'presentation') || str_contains($mimeType, 'powerpoint')) {
-            return $this->summarize($file,'/summarize');
+            return $this->summarizeUrl($fileUrl, $fileName, '/summarize-from-url');
         }
 
-        return [
-            'status' => 'error',
-            'message' => 'Format file tidak didukung.'
-        ];
+        return ['status' => 'error', 'message' => 'Format file tidak didukung.'];
     }
 
-    private function summarize($file,$endpoint)
+    private function summarizeUrl(string $fileUrl, string $fileName, string $endpoint): array
     {
-        $baseUrl = config('services.ai_summarizer.base_url'); 
-        $url = $baseUrl . $endpoint;
-        
-        /** @var Response $response */ //
-        $response = Http::timeout(300)->attach(
-            'file', 
-            $file->get(), 
-            $file->getClientOriginalName()
-        )->post($url);
+        $url = config('services.ai_summarizer.base_url') . $endpoint;
 
-        return $response->json();
+        $response = Http::timeout(300)->asForm()->post($url, [
+            'file_url'  => $fileUrl,
+            'file_name' => $fileName,
+        ]);
+
+        return $response->json() ?? ['status' => 'error', 'message' => 'No response from AI service.'];
     }
 }

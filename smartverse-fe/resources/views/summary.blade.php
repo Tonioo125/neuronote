@@ -409,79 +409,29 @@
 
             const generateBtn = document.getElementById('generate-question-btn');
 
-            generateBtn.addEventListener('click', async function() {
+            generateBtn.addEventListener('click', function() {
 
-                const { jsPDF } = window.jspdf;
-                const doc = new jsPDF();
+                const summaryText = data.slides_summary
+                    .map(item => `${item.topic}. ${item.summary}`)
+                    .join('\n\n');
 
-                let y = 20;
-
-                doc.setFontSize(18);
-                doc.text("NeuroNote Summary", 20, y);
-                y += 10;
-
-                doc.setFontSize(12);
-                doc.text(`File: ${data.file_name || 'Unknown File'}`, 20, y);
-                y += 10;
-
-                data.slides_summary.forEach((item, index) => {
-
-                    doc.setFontSize(14);
-                    doc.text(`${index + 1}. ${item.topic}`, 20, y);
-                    y += 8;
-
-                    doc.setFontSize(11);
-
-                    const splitText = doc.splitTextToSize(item.summary, 170);
-                    doc.text(splitText, 20, y);
-
-                    y += splitText.length * 6 + 5;
-
-                    if (y > 270) {
-                        doc.addPage();
-                        y = 20;
-                    }
-                });
-
-                // PDF blob
-                const pdfBlob = doc.output('blob');
-
-                // convert to file
-                const pdfFile = new File(
-                    [pdfBlob],
-                    'summary.pdf',
-                    { type: 'application/pdf' }
-                );
-
-                // buat form
                 const form = document.createElement('form');
                 form.method = 'POST';
                 form.action = '/generate-quiz';
-                form.enctype = 'multipart/form-data';
 
-                // csrf
                 const csrf = document.createElement('input');
                 csrf.type = 'hidden';
                 csrf.name = '_token';
                 csrf.value = '{{ csrf_token() }}';
-
                 form.appendChild(csrf);
 
-                // file input
-                const fileInput = document.createElement('input');
-                fileInput.type = 'file';
-                fileInput.name = 'summary_file';
-
-                // DataTransfer biar file bisa di-assign
-                const dataTransfer = new DataTransfer();
-                dataTransfer.items.add(pdfFile);
-
-                fileInput.files = dataTransfer.files;
-
-                form.appendChild(fileInput);
+                const textInput = document.createElement('input');
+                textInput.type = 'hidden';
+                textInput.name = 'summary_text';
+                textInput.value = summaryText;
+                form.appendChild(textInput);
 
                 document.body.appendChild(form);
-
                 form.submit();
             });
 

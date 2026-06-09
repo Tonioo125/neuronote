@@ -16,18 +16,21 @@ class QuizController extends Controller
 
     public function generate(Request $request)
     {
-        $request->validate([
-            'summary_file' => 'required|file|mimes:pdf'
-        ]);
-
-        $file = $request->file('summary_file');
-
-        $quiz = $this->quizService->generateQuiz($file);
+        if ($request->has('summary_text')) {
+            $quiz = $this->quizService->generateQuizFromText($request->input('summary_text'));
+        } else {
+            $request->validate(['summary_file' => 'required|file|mimes:pdf']);
+            $quiz = $this->quizService->generateQuiz($request->file('summary_file'));
+        }
 
         $questions = $this->quizService->normalizeQuestions($quiz);
-        
+
+        if (empty($questions)) {
+            return redirect()->back()->with('error', 'Could not generate quiz questions. Try a different file.');
+        }
+
         session(['quiz_questions' => $questions]);
-        
+
         return view('quiz', compact('questions'));
     }
 
