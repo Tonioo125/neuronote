@@ -440,5 +440,19 @@
             chooseBtn.innerText = "Choose File";
             loadingStatus.style.display = 'none';
         }
+
+        function requireAuth() {
+            const isAuthenticated = {{ auth()->check() ? 'true' : 'false' }};
+            if (!isAuthenticated) {
+                window.location.href = '{{ route('login') }}';
+                return false;
+            }
+            return true;
+        }
+
+        function handleChooseFile() {
+            if (!requireAuth()) return;
+            fileInput.click();
+        }
     </script>
 @endpush
