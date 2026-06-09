@@ -316,7 +316,13 @@
 @endsection
 
 @push('scripts')
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <script>
+        const SUPABASE_URL    = '{{ config('services.supabase.url') }}';
+        const SUPABASE_KEY    = '{{ config('services.supabase.anon_key') }}';
+        const SUPABASE_BUCKET = '{{ config('services.supabase.bucket') }}';
+        const supabaseClient  = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
         const btnUploadPpt = document.getElementById('btn-upload-ppt');
         const btnUploadVideo = document.getElementById('btn-upload-video');
 
@@ -371,36 +377,56 @@
             fileLabel.innerText = "Selected: " + file.name;
             chooseBtn.disabled = true;
             fileInput.disabled = true;
-
-            // Buat FormData untuk dikirim
-            const formData = new FormData();
-            formData.append('file', file);
-            formData.append('_token', '{{ csrf_token() }}'); // CSRF Protection Laravel
-
-            // Tampilkan loading
             loadingStatus.style.display = 'block';
 
-            // console.log(file)
+            const storagePath = `${Date.now()}_${file.name}`;
 
             try {
+                // Step 1: upload file ke Supabase Storage
+                const { error: uploadError } = await supabaseClient.storage
+                    .from(SUPABASE_BUCKET)
+                    .upload(storagePath, file, { upsert: true });
+
+                if (uploadError) throw new Error('Supabase upload failed: ' + uploadError.message);
+
+                // Step 2: ambil public URL
+                const { data: urlData } = supabaseClient.storage
+                    .from(SUPABASE_BUCKET)
+                    .getPublicUrl(storagePath);
+
+                const fileUrl = urlData.publicUrl;
+
+                // Step 3: kirim URL ke Laravel untuk diproses Python
                 const response = await fetch('/summarize', {
                     method: 'POST',
-                    body: formData
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify({
+                        file_url:  fileUrl,
+                        file_name: file.name,
+                        file_type: file.type,
+                    })
                 });
-                
-                console.log(response)
+
                 const result = await response.json();
 
                 if (response.ok) {
                     result.file_name = file.name;
                     sessionStorage.setItem('last_summary', JSON.stringify(result));
+
+                    // Hapus file dari Supabase setelah selesai diproses
+                    await supabaseClient.storage.from(SUPABASE_BUCKET).remove([storagePath]);
+
                     window.location.href = '/summary';
                 } else {
+                    await supabaseClient.storage.from(SUPABASE_BUCKET).remove([storagePath]);
                     alert("Error: " + (result.message || "Failed to process file"));
                 }
             } catch (error) {
                 console.error(error);
-                alert("Connection to AI server failed.");
+                alert("Connection failed: " + error.message);
             } finally {
                 loadingStatus.style.display = 'none';
                 resetUI();

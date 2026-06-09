@@ -39,4 +39,10 @@ return [
         'base_url' => env('AI_SERVICE_URL'),
     ],
 
+    'supabase' => [
+        'url'        => env('SUPABASE_URL'),
+        'anon_key'   => env('SUPABASE_ANON_KEY'),
+        'bucket'     => env('SUPABASE_BUCKET', 'uploads'),
+    ],
+
 ];

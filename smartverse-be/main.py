@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, Form
 import numpy as np
 from transformers import pipeline
 import shutil
@@ -7,13 +7,15 @@ import re
 from PIL import Image
 import io
 import subprocess
-import fitz  
+import fitz
 from rapidocr_onnxruntime import RapidOCR
 from collections import Counter
 import re
 from fastapi import BackgroundTasks
 import torch
 from fastapi.middleware.cors import CORSMiddleware
+import urllib.request
+import uuid
 
 app = FastAPI()
 
@@ -393,6 +395,96 @@ async def summarize_ppt(background_tasks: BackgroundTasks, file: UploadFile = Fi
         "total_slides": len(slide_summaries),
         "slides_summary": slide_summaries
     }
+def download_file_from_url(url: str, dest_dir: str = "temp") -> str:
+    os.makedirs(dest_dir, exist_ok=True)
+    ext = os.path.splitext(url.split("?")[0])[-1] or ".bin"
+    filename = f"{uuid.uuid4().hex}{ext}"
+    dest = os.path.abspath(os.path.join(dest_dir, filename))
+    urllib.request.urlretrieve(url, dest)
+    return dest
+
+@app.post("/summarize-from-url")
+async def summarize_ppt_from_url(background_tasks: BackgroundTasks, file_url: str = Form(...), file_name: str = Form("")):
+    print("1. URL received:", file_url)
+    os.makedirs("temp", exist_ok=True)
+
+    file_location = download_file_from_url(file_url)
+
+    if file_name.lower().endswith(".pdf") or file_location.endswith(".pdf"):
+        pdf_path = file_location
+        files_to_cleanup = [file_location]
+    else:
+        print("Converting to PDF...")
+        convert_ppt_to_pdf(file_location)
+        pdf_path = os.path.splitext(file_location)[0] + ".pdf"
+        files_to_cleanup = [file_location, pdf_path]
+
+    slides = extract_all_text(pdf_path)
+    slides = filter_irrelevant_slides(slides)
+    slides = group_short_slides(slides)
+    slide_summaries = summarize_per_slide(slides)
+
+    background_tasks.add_task(remove_temp_files, files_to_cleanup)
+
+    return {
+        "total_slides": len(slide_summaries),
+        "slides_summary": slide_summaries
+    }
+
+@app.post("/summarize-video-from-url")
+async def summarize_video_from_url(background_tasks: BackgroundTasks, file_url: str = Form(...), file_name: str = Form("")):
+    print("1. Video URL received:", file_url)
+    os.makedirs("temp", exist_ok=True)
+
+    video_location = download_file_from_url(file_url)
+    audio_location = os.path.splitext(video_location)[0] + ".mp3"
+
+    try:
+        print("2. Extracting audio...")
+        extract_audio(video_location, audio_location)
+
+        print("3. Transcribing audio (STT)...")
+        segments = transcribe_audio(audio_location)
+
+        print("4. Grouping audio Segments...")
+        chunks = group_segments_by_time(segments)
+
+        print("5. Summarizing...")
+        results = []
+
+        for i, chunk in enumerate(chunks):
+            text = build_text(chunk)
+            if not text.strip():
+                continue
+            words = text.split()
+            if len(words) > 400:
+                text = " ".join(words[:400])
+            prompt = (
+                f"Act as a student making study notes. Summarize the actual facts and definitions from this text in a short paragraph. "
+                f"Be direct and do not meta-describe the text: {text}"
+            )
+            summary_result = summarizer(prompt, max_length=150, min_length=40, truncation=True)
+            topic = get_general_topic(text)
+            results.append({
+                "topic": topic,
+                "chunk_numbers": i + 1,
+                "summary": summary_result[0]["summary_text"]
+            })
+
+        background_tasks.add_task(remove_temp_files, [video_location, audio_location])
+
+        return {
+            "total_slides": len(results),
+            "slides_summary": [
+                {"topic": r["topic"], "slide_numbers": [r["chunk_numbers"]], "summary": r["summary"]}
+                for r in results
+            ]
+        }
+
+    except Exception as e:
+        print(f"Error: {e}")
+        return {"error": str(e)}
+
 # ==================================== VIDEO SUMMARIZER =========================================
 #region VIDEO SUMMARIZER
 
@@ -645,6 +737,14 @@ def generate_mcq(text, max_questions=5):
         })
 
     return questions
+
+@app.post("/generate-quiz-from-text")
+async def generate_quiz_from_text(text: str = Form(...)):
+    questions = generate_mcq(text, max_questions=5)
+    return {
+        "total_questions": len(questions),
+        "questions": questions
+    }
 
 @app.post("/generate-quiz")
 async def generate_quiz(

@@ -20,22 +20,24 @@ class SummarizerController extends Controller
     {
         set_time_limit(300);
 
-        $file = $request->file('file');
+        $fileUrl  = $request->input('file_url');
+        $fileName = $request->input('file_name', '');
+        $mimeType = $request->input('file_type', '');
 
-        $result = $this->_service->executeSummary($file);
+        $result = $this->_service->executeSummaryFromUrl($fileUrl, $fileName, $mimeType);
 
         if (Auth::check() && ($result['status'] ?? 'ok') !== 'error') {
             $slides    = $result['slides_summary'] ?? [];
             $firstSlot = $slides[0] ?? [];
 
             Summary::create([
-                'user_id'      => Auth::id(),
-                'file_name'    => $file->getClientOriginalName(),
-                'file_type'    => $file->getMimeType(),
-                'topic'        => $firstSlot['topic'] ?? null,
-                'slide_numbers'=> array_column($slides, 'slide_numbers'),
-                'summary'      => $firstSlot['summary'] ?? null,
-                'raw_response' => $result,
+                'user_id'       => Auth::id(),
+                'file_name'     => $fileName,
+                'file_type'     => $mimeType,
+                'topic'         => $firstSlot['topic'] ?? null,
+                'slide_numbers' => array_column($slides, 'slide_numbers'),
+                'summary'       => $firstSlot['summary'] ?? null,
+                'raw_response'  => $result,
             ]);
         }
 

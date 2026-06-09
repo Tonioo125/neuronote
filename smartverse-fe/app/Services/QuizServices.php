@@ -2,28 +2,32 @@
 
 namespace App\Services;
 
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Http\Client\Response;
 
 class QuizServices
 {
-    public function generateQuiz($file)
+    public function generateQuiz(UploadedFile $file): array
     {
         $baseUrl = config('services.ai_summarizer.base_url');
-
-        $url = $baseUrl . '/generate-quiz';
-
-        /** @var Response $response */
         $response = Http::timeout(300)->attach(
-            'file',
-            $file->get(),
-            $file->getClientOriginalName()
-        )->post($url);
+            'file', $file->get(), $file->getClientOriginalName()
+        )->post($baseUrl . '/generate-quiz');
 
-        return $response->json();
+        return $response->json() ?? [];
     }
 
-    public function normalizeQuestions($quiz)
+    public function generateQuizFromText(string $text): array
+    {
+        $baseUrl = config('services.ai_summarizer.base_url');
+        $response = Http::timeout(300)->asForm()->post($baseUrl . '/generate-quiz-from-text', [
+            'text' => $text,
+        ]);
+
+        return $response->json() ?? [];
+    }
+
+    public function normalizeQuestions(array $quiz): array
     {
         $normalizedQuestions = [];
 
