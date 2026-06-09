@@ -7,7 +7,7 @@
     <title>@yield('title')</title>
 
     <link href="{{ asset('css/bootstrap.min.css') }}" rel="stylesheet">
-    <script src="/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ asset('js/bootstrap.min.js') }}"></script>
     <style>
         :root {
             --footer-height: 75px;
@@ -63,9 +63,8 @@
 
             <div class="ms-auto d-flex align-items-center gap-3">
                 <a class="nav-link text-white" href="/">Home</a>
-                <a class="nav-link text-white" href="#">About Us</a>
                 @auth
-                    <a class="nav-link text-white" href="/summary">Summary</a>
+                    <a class="nav-link text-white" href="/history">History</a>
                     <form method="POST" action="{{ route('logout') }}" class="m-0">
                         @csrf
                         <button type="submit" class="btn login-btn btn-sm">Logout</button>
@@ -88,6 +87,37 @@
     <footer class="page-footer text-center">
         @ 2026 NeuroNote All Rights Reserved
     </footer>
+    <script>
+        document.addEventListener('click', function(event) {
+            const dropdownToggle = event.target.closest('[data-bs-toggle="dropdown"]');
+            const openDropdowns = document.querySelectorAll('.dropdown-menu.show');
+
+            openDropdowns.forEach(function(menu) {
+                if (!menu.parentElement.contains(event.target)) {
+                    menu.classList.remove('show');
+                    const toggle = menu.parentElement.querySelector('[data-bs-toggle="dropdown"]');
+                    toggle?.setAttribute('aria-expanded', 'false');
+                }
+            });
+
+            if (!dropdownToggle) {
+                return;
+            }
+
+            event.preventDefault();
+            event.stopImmediatePropagation();
+
+            const dropdown = dropdownToggle.closest('.dropdown');
+            const menu = dropdown?.querySelector('.dropdown-menu');
+
+            if (!menu) {
+                return;
+            }
+
+            const isOpen = menu.classList.toggle('show');
+            dropdownToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        }, true);
+    </script>
     @stack('scripts')
 </body>
 

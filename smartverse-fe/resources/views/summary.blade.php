@@ -53,6 +53,25 @@
             border: 2px solid #222;
         }
 
+        .generate-btn {
+            background: white;
+            color: #3b82f6;
+            padding: 10px 18px;
+            border-radius: 10px;
+            border: 2px solid #3b82f6;
+            font-weight: 600;
+            transition: 0.2s;
+        }
+
+        .generate-btn img {
+            height: 22px;
+            display: block;
+        }
+
+        .generate-btn:hover {
+            background: #eff6ff;
+        }
+
         .download-btn {
             background: #3b82f6;
             color: white;
@@ -147,29 +166,44 @@
                 <div class="file-inner d-flex justify-content-between align-items-center">
 
                     <div class="d-flex align-items-center">
-                        <img src="{{ asset('images/ppt.png') }}" width="40" class="me-3">
-                        <strong id="file-name">Example.pptx</strong>
+                        <img id="file-icon"
+                            src="{{ asset('images/' . (pathinfo($summary->file_name ?? '', PATHINFO_EXTENSION) === 'mp4' ? 'mp4.png' : 'ppt.png')) }}"
+                            width="40" class="me-3">
+                        <strong id="file-name">{{ $summary->file_name ?? 'Example.pptx' }}</strong>
                     </div>
-
                 </div>
             </div>
 
             <div class="summary-card mt-4">
-                <div class="d-flex justify-content-between align-items-center mb-4">
+                <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+
                     <div class="btn-group">
                         <button id="btn-bullet" class="mode-btn active d-flex align-items-center gap-2">
                             <img src="{{ asset('images/fast_forward.png') }}" width="22">
                             Bullet Mode
                         </button>
+
                         <button id="btn-paragraph" class="mode-btn d-flex align-items-center gap-2">
                             <img src="{{ asset('images/paragraph.png') }}" width="22">
                             Paragraph Mode
                         </button>
                     </div>
-                    <button id="download-btn" class="download-btn d-flex align-items-center gap-2">
-                        <img src="{{ asset('images/download_cloud.png') }}" width="22">
-                        Download
-                    </button>
+
+                    <div class="d-flex align-items-center gap-2">
+
+                        <button id="generate-question-btn" class="generate-btn d-flex align-items-center gap-2">
+                            <img src="{{ asset('images/question.png') }}" width="22">
+                            Generate Questions
+                        </button>
+
+                        <button id="download-btn" class="download-btn d-flex align-items-center gap-2">
+
+                            <img src="{{ asset('images/download_cloud.png') }}" width="22">
+
+                            Download
+                        </button>
+
+                    </div>
                 </div>
 
                 <h3 class="fw-bold mb-1">Hasil Ringkasan Materi</h3>
@@ -290,14 +324,47 @@
             </div>
         </div>
     </section>
+    @php
+        $seededSummary = isset($summary)
+            ? array_merge(is_array($summary->raw_response) ? $summary->raw_response : [], [
+                'file_name' => $summary->file_name,
+            ])
+            : null;
+    @endphp
 @endsection
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 @push('scripts')
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Ambil data dari sessionStorage (atau paste langsung data JSON kamu di sini untuk testing)
-            const rawData = sessionStorage.getItem('last_summary');
+        function getFileIcon(fileName) {
+            if (!fileName) {
+                return "{{ asset('images/ppt.png') }}";
+            }
 
+            const ext = fileName.split('.').pop().toLowerCase();
+
+            const icons = {
+                ppt: "{{ asset('images/ppt.png') }}",
+                pptx: "{{ asset('images/ppt.png') }}",
+                mp4: "{{ asset('images/mp4.png') }}",
+                avi: "{{ asset('images/mp4.png') }}",
+                mov: "{{ asset('images/mp4.png') }}",
+                default: "{{ asset('images/ppt.png') }}"
+            };
+
+            return icons[ext] || icons.default;
+        }
+        const seededSummary = @json($seededSummary);
+
+        document.addEventListener('DOMContentLoaded', function() {
+            if (seededSummary) {
+                try {
+                    sessionStorage.setItem('last_summary', JSON.stringify(seededSummary));
+                } catch (e) {
+                    console.error('Failed to seed summary data', e);
+                }
+            }
+
+            const rawData = sessionStorage.getItem('last_summary');
             if (!rawData) return;
             const data = JSON.parse(rawData);
 
@@ -305,31 +372,27 @@
 
             if (data.file_name) {
                 document.getElementById('file-name').innerText = data.file_name;
+                document.getElementById('file-icon').src = getFileIcon(data.file_name);
             }
-            // Update Total Slides
             document.getElementById('total-slides').innerText = data.total_slides;
 
             const container = document.getElementById('summary-list');
 
-            // Fungsi untuk menampilkan data
             function renderSummary(isBullet = true) {
-                container.innerHTML = ''; // Kosongkan dulu
+                container.innerHTML = '';
 
                 data.slides_summary.forEach((item) => {
                     const section = document.createElement('div');
                     section.className = 'mb-4';
 
-                    // Template Judul Per Topik
                     let contentHtml = `
-                <h5 class="fw-bold text-primary">
-                    ${item.topic}
-                    <span class="badge bg-secondary" style="font-size: 10px">Slide/Chunk: ${item.slide_numbers.join(', ')}</span>
-                </h5>
-            `;
+                    <h5 class="fw-bold text-primary">
+                        ${item.topic}
+                        <span class="badge bg-secondary" style="font-size: 10px">Slide/Chunk: ${item.slide_numbers.join(', ')}</span>
+                    </h5>
+                `;
 
-                    // Cek apakah mode Bullet atau Paragraph
                     if (isBullet) {
-                        // Pecah teks berdasarkan titik untuk jadi list
                         const sentences = item.summary.split('. ').filter(s => s.trim() !== '');
                         contentHtml += '<ul>' + sentences.map(s => `<li>${s}.</li>`).join('') + '</ul>';
                     } else {
@@ -342,10 +405,86 @@
                 });
             }
 
-            // Render pertama kali (Default Bullet)
             renderSummary(true);
 
-            // Event Listener untuk tombol Mode
+            const generateBtn = document.getElementById('generate-question-btn');
+
+            generateBtn.addEventListener('click', async function() {
+
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+
+                let y = 20;
+
+                doc.setFontSize(18);
+                doc.text("NeuroNote Summary", 20, y);
+                y += 10;
+
+                doc.setFontSize(12);
+                doc.text(`File: ${data.file_name || 'Unknown File'}`, 20, y);
+                y += 10;
+
+                data.slides_summary.forEach((item, index) => {
+
+                    doc.setFontSize(14);
+                    doc.text(`${index + 1}. ${item.topic}`, 20, y);
+                    y += 8;
+
+                    doc.setFontSize(11);
+
+                    const splitText = doc.splitTextToSize(item.summary, 170);
+                    doc.text(splitText, 20, y);
+
+                    y += splitText.length * 6 + 5;
+
+                    if (y > 270) {
+                        doc.addPage();
+                        y = 20;
+                    }
+                });
+
+                // PDF blob
+                const pdfBlob = doc.output('blob');
+
+                // convert to file
+                const pdfFile = new File(
+                    [pdfBlob],
+                    'summary.pdf',
+                    { type: 'application/pdf' }
+                );
+
+                // buat form
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '/generate-quiz';
+                form.enctype = 'multipart/form-data';
+
+                // csrf
+                const csrf = document.createElement('input');
+                csrf.type = 'hidden';
+                csrf.name = '_token';
+                csrf.value = '{{ csrf_token() }}';
+
+                form.appendChild(csrf);
+
+                // file input
+                const fileInput = document.createElement('input');
+                fileInput.type = 'file';
+                fileInput.name = 'summary_file';
+
+                // DataTransfer biar file bisa di-assign
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(pdfFile);
+
+                fileInput.files = dataTransfer.files;
+
+                form.appendChild(fileInput);
+
+                document.body.appendChild(form);
+
+                form.submit();
+            });
+
             document.getElementById('btn-bullet').addEventListener('click', function() {
                 currentMode = 'bullet';
                 this.classList.add('active');
@@ -359,10 +498,10 @@
                 document.getElementById('btn-bullet').classList.remove('active');
                 renderSummary(false);
             });
+
             const downloadBtn = document.getElementById('download-btn');
 
             downloadBtn.addEventListener('click', function() {
-
                 const {
                     jsPDF
                 } = window.jspdf;
@@ -370,52 +509,31 @@
 
                 let y = 20;
 
-                // Judul PDF
                 doc.setFontSize(18);
                 doc.text("NeuroNote Summary", 20, y);
-
                 y += 10;
 
-                // Nama file
                 doc.setFontSize(12);
                 doc.text(`File: ${data.file_name || 'Unknown File'}`, 20, y);
-
                 y += 10;
 
-                // Total slides
                 doc.text(`Total Slides/Chunks: ${data.total_slides}`, 20, y);
-
                 y += 15;
 
-                // Isi summary
                 data.slides_summary.forEach((item, index) => {
-
-                    // Topic
                     doc.setFontSize(14);
                     doc.text(`${index + 1}. ${item.topic}`, 20, y);
-
                     y += 8;
 
-                    // Summary text
                     doc.setFontSize(11);
 
                     if (currentMode === 'bullet') {
-
-                        const sentences = item.summary
-                            .split('. ')
-                            .filter(s => s.trim() !== '');
+                        const sentences = item.summary.split('. ').filter(s => s.trim() !== '');
 
                         sentences.forEach(sentence => {
-
                             const bulletText = "• " + sentence.trim();
-
-                            const splitText = doc.splitTextToSize(
-                                bulletText,
-                                165
-                            );
-
+                            const splitText = doc.splitTextToSize(bulletText, 165);
                             doc.text(splitText, 25, y);
-
                             y += splitText.length * 6;
 
                             if (y > 270) {
@@ -425,30 +543,19 @@
                         });
 
                         y += 5;
-
                     } else {
-
-                        const splitText = doc.splitTextToSize(
-                            item.summary,
-                            170
-                        );
-
+                        const splitText = doc.splitTextToSize(item.summary, 170);
                         doc.text(splitText, 20, y);
-
                         y += splitText.length * 6 + 3;
                     }
 
-                    // kalau halaman penuh
                     if (y > 270 && index < data.slides_summary.length - 1) {
                         doc.addPage();
                         y = 20;
                     }
                 });
 
-                // Nama file PDF
-                const pdfName = (data.file_name || 'summary')
-                    .replace(/\.[^/.]+$/, "") + "_summary.pdf";
-
+                const pdfName = (data.file_name || 'summary').replace(/\.[^/.]+$/, "") + "_summary.pdf";
                 doc.save(pdfName);
             });
         });
