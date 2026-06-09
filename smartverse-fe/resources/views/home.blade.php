@@ -256,7 +256,7 @@
                             accept=".ppt,.pptx,.pdf,.mp4,.avi">
 
                         <button id="choose-btn" class="btn btn-primary mt-3"
-                            onclick="document.getElementById('main-file-input').click()">
+                            onclick="handleChooseFile()">
                             Choose File
                         </button>
 
@@ -317,26 +317,43 @@
 
 @push('scripts')
     <script>
+        const isLoggedIn = @json(auth()->check());
+        const loginUrl = "{{ route('login') }}";
+
+        function requireAuth() {
+            if (!isLoggedIn) {
+                window.location.href = loginUrl;
+                return false;
+            }
+            return true;
+        }
+
+        function handleChooseFile() {
+            if (requireAuth()) {
+                document.getElementById('main-file-input').click();
+            }
+        }
+
         const btnUploadPpt = document.getElementById('btn-upload-ppt');
         const btnUploadVideo = document.getElementById('btn-upload-video');
 
-        // Klik Upload PPT
         btnUploadPpt.addEventListener('click', function() {
-            fileInput.accept = ".ppt,.pptx,.pdf"; // filter PPT
+            if (!requireAuth()) return;
+            fileInput.accept = ".ppt,.pptx,.pdf";
             fileInput.click();
         });
 
-        // Klik Upload Video
         btnUploadVideo.addEventListener('click', function() {
-            fileInput.accept = ".mp4,.avi,.mkv"; // filter video
+            if (!requireAuth()) return;
+            fileInput.accept = ".mp4,.avi,.mkv";
             fileInput.click();
         });
 
         const uploadArea = document.getElementById('upload-area');
 
         uploadArea.addEventListener('click', function(e) {
-            if (e.target.closest('button')) return
-
+            if (e.target.closest('button')) return;
+            if (!requireAuth()) return;
             fileInput.click();
         });
 
@@ -351,6 +368,7 @@
 
         uploadArea.addEventListener('drop', (e) => {
             e.preventDefault();
+            if (!requireAuth()) return;
 
             const files = e.dataTransfer.files;
             if (files.length > 0) {
