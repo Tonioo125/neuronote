@@ -132,6 +132,7 @@
 
             <form action="{{ url('/quiz-result') }}" method="POST">
                 @csrf
+                <input type="hidden" name="quiz_data" value="{{ base64_encode(json_encode($questions)) }}">
 
                 @foreach ($questions as $question)
                     <div class="question-card">
